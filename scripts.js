@@ -8,7 +8,9 @@ let pawn = {};
 let goal = {};
 let isLooping = false;
 let isHunting = false;
-let tiles = [[]]
+let isGoalSeen = false;
+let tiles = []
+
 
 function setupCanvasTest() {
 
@@ -29,13 +31,15 @@ function setupCanvasTest() {
         d[i+3]   = 255;
     }
 
+    let randCoords = getRandomCoords();
+
     pawn = {
         image: id,
-        x: 20,
-        y: 20,
+        x: randCoords.x,
+        y: randCoords.y,
         moveSpeed: 1,
         hunger: 100,
-        viewDistance: 40,
+        viewDistance: 50,
         viewDirection: .5, // N = 1.5, E = 0, S = .5, W = 1
         searchTime: 0,
         maxSearchTime: 20
@@ -61,19 +65,31 @@ function drawPawn() {
     pawnCanvasCTX.putImageData(pawn.image, pawn.x, pawn.y);
 
     if (isHunting) {
+        
         // draw view angle
         pawnCanvasCTX.beginPath();
         pawnCanvasCTX.moveTo(pawn.x, pawn.y);
         pawnCanvasCTX.arc(pawn.x, pawn.y, pawn.viewDistance,
-            Math.PI * (pawn.viewDirection - .25), Math.PI *(pawn.viewDirection + .25))
+            Math.PI * (pawn.viewDirection - .25),
+            Math.PI *(pawn.viewDirection + .25))
         pawnCanvasCTX.lineTo(pawn.x, pawn.y);
-        pawnCanvasCTX.fillStyle =  "rgba(255, 255, 0, .5)";
+        pawnCanvasCTX.fillStyle = "rgba(255, 255, 0, .5)";
         pawnCanvasCTX.fill();
+
+        // Check if goal point is within this path
+        isGoalSeen = pawnCanvasCTX.isPointInPath(goal.x, goal.y);
+
         pawnCanvasCTX.closePath();
     }
 }
 
 function doLoop() {
+
+    if (pawn.x == goal.x && pawn.y == goal.y) {
+        pawn.hunger = 100;
+        spawnGoal();
+        isGoalSeen = false;
+    }
 
     adjustBars();
     hunt();
@@ -82,13 +98,17 @@ function doLoop() {
 
 function spawnGoal() {
 
-    let randX = Math.floor((Math.random() * fieldCanvas.width) + 1);
-    let randY = Math.floor((Math.random() * fieldCanvas.height) + 1);
+    let randCoords = getRandomCoords();
 
-    if (randX == pawn.x || randY == pawn.y) {
+    if (randCoords.x == pawn.x || randCoords.y == pawn.y) {
+        // Don't spawn the goal on our pawn. Try Again
         spawnGoal();
     } else {
-        // Create goal pixel
+
+        // clear previous goal if any
+        fieldCanvasCTX.clearRect(0, 0, fieldCanvas.width, fieldCanvas.height);
+
+        // Create goal
         id = fieldCanvasCTX.createImageData(1,1);
         d  = id.data;
         for (var i = 0; i < id.data.length; i += 4) {
@@ -98,11 +118,18 @@ function spawnGoal() {
             d[i+3]   = 255;
         }
 
-        goal = {image: id, x: randX, y: randY, moveSpeed: 0};
-        oldGoalX = randX;
-        oldGoalY = randY;
+        goal = {image: id, x: randCoords.x, y: randCoords.y, moveSpeed: 0};
         fieldCanvasCTX.putImageData(id, goal.x, goal.y);
     }
+}
+
+function getRandomCoords() {
+    var randXY = {x:0, y:0}
+
+    randXY.x = Math.floor((Math.random() * fieldCanvas.width) + 1);
+    randXY.y = Math.floor((Math.random() * fieldCanvas.height) + 1);
+
+    return randXY;
 }
 
 function hunt() {
@@ -111,7 +138,7 @@ function hunt() {
 
         isHunting = true;
 
-        if (pawn.searchTime >= pawn.maxSearchTime) {
+        if (pawn.searchTime >= pawn.maxSearchTime && !isGoalSeen) {
             pawn.searchTime = 0
             // Get random direction
             pawn.viewDirection = Math.floor((Math.random() * 4)) / 2
@@ -119,40 +146,68 @@ function hunt() {
         } else {
 
             pawn.searchTime += 1
-            let dx;
-            let dy;
+            let dx = 0;
+            let dy = 0;
 
-            switch(pawn.viewDirection) {
-                case 0: // East
-                    dx = 1;
-                    dy = 0;
-                    break;
-                case 0.5: // South
+            if (isGoalSeen) {
+
+                // We see the goal!
+                // Head straight towards it using the power of MATH
+                var tx = goal.x - pawn.x,
+                    ty = goal.y - pawn.y,
+                    dist = Math.sqrt(tx*tx+ty*ty),
+                    rad = Math.atan2(ty,tx),
+                    angle = rad/Math.PI * 180;;
+
+                dx = (tx/dist);
+                dy = (ty/dist);
+
+                // if we are mathematically within 1 of the goal then
+                // jump to it, otherwise it's often missed.
+                if (dist < 1) {
                     dx = 0;
-                    dy = 1;
-                    break;
-                case 1: // West
-                    dx = -1;
                     dy = 0;
-                    break;
-                case 1.5: // North
-                    dx = 0;
-                    dy = -1;
-                    break;
+
+                    pawn.x = goal.x;
+                    pawn.y = goal.y;
+                }
+
+                // change pawns view to match his movement direction
+                pawn.viewDirection = rad/Math.PI;
+
+            } else {
+
+                // Move along the pawns view
+                switch(pawn.viewDirection) {
+                    case 0: // East
+                        dx = 1;
+                        dy = 0;
+                        break;
+                    case 0.5: // South
+                        dx = 0;
+                        dy = 1;
+                        break;
+                    case 1: // West
+                        dx = -1;
+                        dy = 0;
+                        break;
+                    case 1.5: // North
+                        dx = 0;
+                        dy = -1;
+                        break;
+                }
             }
 
             pawn.x += (dx * pawn.moveSpeed);
             pawn.y += (dy * pawn.moveSpeed);
 
-            // Wall collisions (bounce)
+            // Wall collisions
             if (pawn.x >= fieldCanvas.width || pawn.x <= 0) {
                 if (pawn.viewDirection == 0) {
                     pawn.viewDirection = 1
                 } else if(pawn.viewDirection == 1) {
                     pawn.viewDirection = 0
                 };
-                //dx = -dx;
-                //pawn.x += (dx * pawn.moveSpeed);
             }
             if (pawn.y >= fieldCanvas.height || pawn.y <= 0) {
                 if (pawn.viewDirection == 0.5) {
@@ -160,44 +215,14 @@ function hunt() {
                 } else if(pawn.viewDirection == 1.5) {
                     pawn.viewDirection = 0.5
                 };
-                //dy = -dy;
-                //pawn.y += (dy * pawn.moveSpeed);
             }
         }
-
-        drawPawn();
-
     } else {
-        drawPawn();
+
+        isHunting = false;
     }
-}
 
-function checkPawnSight() {
-
-    var openTiles = []
-    var closedTiles = []
-
-    // Get current view perimeter
-    // Start at pawn then circle outward checking each tile
-    // Tiles must be open and within line of sight
-    var startX = pawn.x;
-    var startY = pawn.y;
-
-
-    // Determine if goal is in sight
-
-}
-
-function checkTileLOS() {
-
-}
-
-function getTileType() {
-
-}
-
-function getTileNeighbors(x, y) {
-    var neighborTiles
+    drawPawn();
 }
 
 function adjustBars() {
