@@ -6,12 +6,27 @@ let statCanvas;
 let statCanvasCTX;
 let goalCanvas;
 let goalCanvasCTX;
-let pawn = {};
-let goal = {};
-let isLooping = false;
+let pawn;
+let goal;
 let tiles = [];
 let manualControl = false;
-const tileSize = 1; // pixels per tile
+let isLooping = false;
+
+const tileSize = 10; // pixels per tile
+const borderColor = "rgba(230, 230, 230, 1)";
+const tileTypes = {
+    EMPTY: 0,
+    PAWN: 1,
+    FOOD: 2,
+    WALL: 3
+};
+const tileData = [
+    {color: "rgba(238, 238, 238, 1)"}, // EMPTY
+    {color: "rgba(255, 0, 0, 1)"}, // PAWN
+    {color: "rgba(0, 0, 255, 1)"}, // FOOD
+    {color: "rgba(0, 0, 0, 1)"}, // WALL
+]
+
 
 function setupCanvasTest() {
 
@@ -33,7 +48,7 @@ function setupCanvasTest() {
     let randCoords = getRandomCoords();
     pawn = new Pawn(randCoords.x, randCoords.y);
 
-    //spawnGoal();
+    spawnFood();
 }
 
 function generateTerrain() {
@@ -46,39 +61,35 @@ function generateTerrain() {
 
     let i = 0;
     // For now the world is blank so just populate the tiles object by amount
-    for (let r = 0; r < fieldCanvas.width; r++) {
-        tiles[r] = []
+    for (let x = 0; x < Math.round(fieldCanvas.width / tileSize); x++) {
+        tiles[x] = []
 
-        for (var c = 0; c < fieldCanvas.height; c++) {
+        for (var y = 0; y < Math.round(fieldCanvas.height / tileSize); y++) {
 
-            let type = 0;
+            let type = tileTypes.EMPTY;
+            if ((x == 0 && y == 0) ||
+                (x == 0 && y == 0) ||
+                (x == 0 && y == 0) ||
+                (x == 0 && y == 0) )
+                type = tileTypes.WALL;
 
-            if (r >= 20 && r <= 80 && c >= 40 && c <= 60)
-                type = 1;
+            tiles[x][y] = {
+                type: tileTypes.EMPTY
+            };
 
-            tiles[r][c] = {x: c, y: r, type: type} // 0 means open
-            let colorData = (type == 0) ? openColor : closedColor;
-            d[i+0] = colorData.r;
-            d[i+1] = colorData.g;
-            d[i+2] = colorData.b;
-            d[i+3] = colorData.a;
-
-            i += 4;
+            drawTile(x, y);
         }
     }
-
-    fieldCanvasCTX.putImageData(terrainImageData, 0, 0);
 }
 
 function Pawn(x, y) {
-    this.image;
     this.x = x;
     this.y = y;
     this.moveSpeed = 1;
-    this.actionSpeed = 10;
+    this.actionSpeed = 200;
     this.food = 200;
     this.maxFood = 200;
-    this.viewDistance = 50;
+    this.viewDistance = 25 * tileSize;
     this.direction = .75;
     this.waitTicks = 0;
     this.huntTime = 0;
@@ -87,47 +98,9 @@ function Pawn(x, y) {
     const that = this; // javascript bug for accessing 'this' in private funcs.
     let isHunting = false;
 
-    create();
-    draw();
+    tiles[x][y].type = tileTypes.PAWN
+    drawTile(x, y);
 
-    function create() {
-
-        let id = pawnCanvasCTX.createImageData(1,1);
-        let d  = id.data;
-        for (var i = 0; i < id.data.length; i += 4) {
-            d[i+0] = 255;
-            d[i+1] = 0;
-            d[i+2] = 0;
-            d[i+3] = 255;
-        }
-
-        that.image = id;
-    }
-
-    function draw() {
-
-        // clear layer
-        pawnCanvasCTX.clearRect(0, 0, pawnCanvas.width, pawnCanvas.height);
-        pawnCanvasCTX.putImageData(that.image, that.x, that.y);
-        setViewArc();
-
-        if (isHunting) {
-
-            // draw view angle
-            pawnCanvasCTX.beginPath();
-            pawnCanvasCTX.moveTo(that.x, that.y);
-            pawnCanvasCTX.arc(
-                that.viewArc.x,
-                that.viewArc.y,
-                that.viewArc.radius,
-                that.viewArc.startAngle,
-                that.viewArc.endAngle)
-            pawnCanvasCTX.lineTo(that.x, that.y);
-            pawnCanvasCTX.fillStyle = "rgba(255, 255, 0, .5)";
-            pawnCanvasCTX.fill();
-            pawnCanvasCTX.closePath();
-        }
-    }
     // N = 1.5, E = 0, S = .5, W = 1
     this.setDirection = function(direction)
     {
@@ -236,6 +209,14 @@ function Pawn(x, y) {
     }
 }
 
+function drawTile(x, y) {
+
+    fieldCanvasCTX.fillStyle = tileData[tiles[x][y].type].color;
+    fieldCanvasCTX.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+    fieldCanvasCTX.strokeStyle = borderColor;
+    fieldCanvasCTX.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+}
+
 function collisionDetection() {
 
     let hasCollided = false;
@@ -274,31 +255,31 @@ function doLoop() {
     updatePawns()
 }
 
-function spawnGoal() {
+function spawnFood() {
 
     let randCoords = getRandomCoords();
 
     if (randCoords.x == pawn.x ||
         randCoords.y == pawn.y) {
         // Don't spawn the goal on our pawn. Try Again
-        spawnGoal();
+        spawnFood();
     } else {
 
-        // clear previous goal if any
-        goalCanvasCTX.clearRect(0, 0, goalCanvas.width, goalCanvas.height);
+        tiles[randCoords.x][randCoords.y].type = tileTypes.FOOD;
+        drawTile(randCoords.x, randCoords.y);
 
         // Create goal
-        id = goalCanvasCTX.createImageData(1,1);
-        d  = id.data;
-        for (var i = 0; i < id.data.length; i += 4) {
-            d[i+0]   = 0;
-            d[i+1]   = 0;
-            d[i+2]   = 255;
-            d[i+3]   = 255;
-        }
-
-        goal = {image: id, x: randCoords.x, y: randCoords.y, moveSpeed: 0};
-        goalCanvasCTX.putImageData(id, goal.x, goal.y);
+        // id = goalCanvasCTX.createImageData(tileSize, tileSize);
+        // d  = id.data;
+        // for (var i = 0; i < id.data.length; i += 4) {
+        //     d[i+0]   = 0;
+        //     d[i+1]   = 0;
+        //     d[i+2]   = 255;
+        //     d[i+3]   = 255;
+        // }
+        //
+        // goal = {image: id, x: randCoords.x, y: randCoords.y, moveSpeed: 0};
+        // goalCanvasCTX.putImageData(id, goal.x, goal.y);
     }
 }
 
@@ -321,8 +302,10 @@ function isGoalSeen() {
 function getRandomCoords() {
     var randXY = {x:0, y:0}
 
-    randXY.x = Math.floor(Math.random() * fieldCanvas.width);
-    randXY.y = Math.floor(Math.random() * fieldCanvas.height);
+    randXY.x = Math.floor(Math.random() *
+        Math.round(fieldCanvas.width / tileSize));
+    randXY.y = Math.floor(Math.random() *
+        Math.round(fieldCanvas.height / tileSize));
 
     if (isPointBlocked(randXY.x, randXY.y))
         return getRandomCoords();
