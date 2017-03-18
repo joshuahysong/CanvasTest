@@ -1,11 +1,7 @@
 let fieldCanvas;
 let fieldCanvasCTX;
-let pawnCanvas;
-let pawnCanvasCTX;
-let statCanvas;
-let statCanvasCTX;
-let goalCanvas;
-let goalCanvasCTX;
+let canvasTilesX;
+let canvasTilesY;
 let pawn;
 let goal;
 let tiles = [];
@@ -38,19 +34,14 @@ function setupCanvasTest() {
     pawn = new Pawn(null, null);
 
     spawnFood();
+    drawScene();
 }
 
 function generateTerrain() {
 
-    let terrainImageData = fieldCanvasCTX.createImageData(
-        fieldCanvas.width, fieldCanvas.height);
-    let d  = terrainImageData.data;
-    let openColor = {r: 238, g: 238, b: 238, a: 255};
-    let closedColor = {r: 0, g: 0, b: 0, a: 255};
-    let canvasTilesX = Math.round(fieldCanvas.width / tileSize)
-    let canvasTilesY = Math.round(fieldCanvas.height / tileSize)
+    canvasTilesX = Math.round(fieldCanvas.width / tileSize)
+    canvasTilesY = Math.round(fieldCanvas.height / tileSize)
 
-    let i = 0;
     // For now the world is blank so just populate the tiles object by amount
     for (let x = 0; x < canvasTilesX; x++) {
         tiles[x] = []
@@ -61,7 +52,7 @@ function generateTerrain() {
             let walkable = true;
 
             // walled border
-            if (x <= 20 || x == canvasTilesX - 1 ||
+            if (x == 0 || x == canvasTilesX - 1 ||
               y == 0 || y == canvasTilesY - 1) {
                 type = tileTypes.WALL;
                 walkable = false;
@@ -71,8 +62,6 @@ function generateTerrain() {
                 type: type,
                 walkable: walkable
             };
-
-            drawTile(x, y);
         }
     }
 }
@@ -80,25 +69,21 @@ function generateTerrain() {
 function Pawn(x, y) {
     this.x = x;
     this.y = y;
-    this.moveSpeed = 1;
+    this.moveSpeed = 10;
     this.actionSpeed = 200;
     this.food = 200;
     this.maxFood = 200;
-    this.viewDistance = 25 * tileSize;
-    this.direction = .75;
+    this.viewDistance = 20 * tileSize;
+    this.direction = .5;
     this.waitTicks = 0;
     this.huntTime = 0;
     this.viewArc;
-
-    // Get random coordinates
-
 
     const that = this; // javascript bug for accessing 'this' in private funcs.
     let isHunting = false;
 
     getSpawnPoint();
-    tiles[this.x][this.y].type = tileTypes.PAWN
-    drawTile(this.x, this.y);
+    tiles[this.x][this.y].type = tileTypes.PAWN;
 
     // N = 1.5, E = 0, S = .5, W = 1
     this.setDirection = function(direction)
@@ -108,18 +93,101 @@ function Pawn(x, y) {
 
     function getSpawnPoint() {
         if (!that.x || !that.y) {
-            let randCoords = getRandomCoords();
-            if (!isPointWalkable(randCoords.x, randCoords.x)) {
-
-                console.log("hey")
-                return getSpawnPoint();
-            }
-            //console.log(tiles[randCoords.x][randCoords.y])
-            console.log(tiles)
+            let randCoords = getRandomCoords(true);
             that.x = randCoords.x;
             that.y = randCoords.y;
-            console.log(that.x, that.y)
         }
+    }
+
+    this.think = function() {
+
+        this.waitTicks++;
+
+        if (this.waitTicks >= this.actionSpeed) {
+            
+            this.waitTicks = 0;
+            this.food--; // Reduce hunger by 1 each action.
+            if (this.food < 0) this.food = 0;
+            let foodX = Math.round((
+                (this.food / this.maxFood) *
+                statCanvas.width));
+
+            statCanvasCTX.clearRect(0, 0,
+                statCanvas.width, statCanvas.height);
+            statCanvasCTX.beginPath();
+            statCanvasCTX.rect(0, 0, foodX, 5);
+            statCanvasCTX.fillStyle = "rgba(0, 255, 0, 1)";
+            statCanvasCTX.fill();
+            statCanvasCTX.closePath();
+
+            hunt();
+        }
+    }
+
+    this.move = function()
+    {
+        // calculate the next tile along the angle
+        var theta = this.direction * Math.PI;
+
+        // MATHMAGICAL!
+        dx = Math.cos(theta) * tileSize;
+        dy = Math.sin(theta) * tileSize;
+
+        if (collisionDetection()) {
+            console.log('collided')
+            this.direction = getRandomDirection();
+
+        } else {
+
+            this.x += (dx * this.moveSpeed);
+            this.y += (dy * this.moveSpeed);
+        }
+
+        draw();
+    }
+
+    function hunt() {
+        isHunting = true;
+
+        if (isGoalSeen()) {
+
+            // We see the goal!
+            // Head straight towards it using the power of MATH
+            var tx = goal.x - that.x,
+                ty = goal.y - that.y,
+                dist = Math.sqrt(tx*tx+ty*ty),
+                rad = Math.atan2(ty,tx);
+
+            // if we are mathematically within 1 of the goal then
+            // jump to it, otherwise it's often missed.
+            if (dist < 1) {
+                dx = 0;
+                dy = 0;
+
+                that.x = goal.x;
+                that.y = goal.y;
+                eat();
+            }
+
+            // change pawns view to match his movement direction
+            that.direction = rad/Math.PI;
+
+        } else {
+
+            that.huntTime++;
+            // Get a random direction to search every X Ticks
+            if (that.huntTime >= 50) {
+                that.huntTime = 0;
+                that.direction = getRandomDirection();
+            }
+        }
+
+        that.move();
+    }
+
+    function eat() {
+        that.food = that.maxFood;
+        spawnGoal();
     }
 }
 
@@ -129,6 +197,15 @@ function drawTile(x, y) {
     fieldCanvasCTX.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
     fieldCanvasCTX.strokeStyle = borderColor;
     fieldCanvasCTX.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+}
+
+function drawScene() {
+    fieldCanvasCTX.clearRect(0,0,500,500)
+    for (let x = 0; x < canvasTilesX; x++) {
+        for (var y = 0; y < canvasTilesY; y++) {
+            drawTile(x,y);
+        }
+    }
 }
 
 function updatePawns() {
@@ -141,7 +218,7 @@ function updatePawns() {
 }
 
 function doLoop() {
-    updatePawns()
+    drawScene();
 }
 
 function spawnFood() {
@@ -155,7 +232,6 @@ function spawnFood() {
     } else {
 
         tiles[randCoords.x][randCoords.y].type = tileTypes.FOOD;
-        drawTile(randCoords.x, randCoords.y);
     }
 }
 
@@ -167,7 +243,7 @@ function isPointWalkable(x,y) {
     return false;
 }
 
-function getRandomCoords() {
+function getRandomCoords(walkable) {
 
     var randXY = {x:0, y:0}
 
@@ -175,6 +251,11 @@ function getRandomCoords() {
         Math.round(fieldCanvas.width / tileSize));
     randXY.y = Math.floor(Math.random() *
         Math.round(fieldCanvas.height / tileSize));
+
+    if (walkable) {
+        if (!isPointWalkable(randXY.x, randXY.y))
+            return getRandomCoords(true);
+    }
 
     return randXY;
 }
