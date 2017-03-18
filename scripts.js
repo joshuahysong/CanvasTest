@@ -1,5 +1,7 @@
 let fieldCanvas;
 let fieldCanvasCTX;
+let statCanvas;
+let statCanvasCTX;
 let canvasTilesX;
 let canvasTilesY;
 let pawn;
@@ -27,6 +29,8 @@ function setupCanvasTest() {
 
     fieldCanvas = document.getElementById("fieldCanvas");
     fieldCanvasCTX = fieldCanvas.getContext("2d");
+    statCanvas = document.getElementById("statCanvas");
+    statCanvasCTX = statCanvas.getContext("2d");
 
     generateTerrain();
 
@@ -69,15 +73,13 @@ function generateTerrain() {
 function Pawn(x, y) {
     this.x = x;
     this.y = y;
-    this.moveSpeed = 10;
-    this.actionSpeed = 200;
-    this.food = 200;
-    this.maxFood = 200;
+    this.moveSpeed = 10; // ticks per 1 tile.
+    this.moveTicks = 0;
+    this.food = 10; // in seconds
+    this.maxFood = 10; // in seconds
     this.viewDistance = 20 * tileSize;
-    this.direction = .5;
-    this.waitTicks = 0;
-    this.huntTime = 0;
-    this.viewArc;
+    this.direction = .5; // N = 1.5, E = 0, S = .5, W = 1
+    this.huntPath = []
 
     const that = this; // javascript bug for accessing 'this' in private funcs.
     let isHunting = false;
@@ -101,27 +103,29 @@ function Pawn(x, y) {
 
     this.think = function() {
 
-        this.waitTicks++;
+        // Eventually some super awesome magic stuff
+        // here to make the pawn seem not unlike an idiot.
+        hunt();
 
-        if (this.waitTicks >= this.actionSpeed) {
-            
-            this.waitTicks = 0;
-            this.food--; // Reduce hunger by 1 each action.
-            if (this.food < 0) this.food = 0;
-            let foodX = Math.round((
-                (this.food / this.maxFood) *
-                statCanvas.width));
+        // this.waitTicks++;
 
-            statCanvasCTX.clearRect(0, 0,
-                statCanvas.width, statCanvas.height);
-            statCanvasCTX.beginPath();
-            statCanvasCTX.rect(0, 0, foodX, 5);
-            statCanvasCTX.fillStyle = "rgba(0, 255, 0, 1)";
-            statCanvasCTX.fill();
-            statCanvasCTX.closePath();
-
-            hunt();
-        }
+        // if (this.waitTicks >= this.actionSpeed) {
+        //
+        //     this.waitTicks = 0;
+        //     this.food--; // Reduce hunger by 1 each action.
+        //     if (this.food < 0) this.food = 0;
+        //     let foodX = Math.round((
+        //         (this.food / this.maxFood) *
+        //         statCanvas.width));
+        //
+        //     statCanvasCTX.clearRect(0, 0,
+        //         statCanvas.width, statCanvas.height);
+        //     statCanvasCTX.beginPath();
+        //     statCanvasCTX.rect(0, 0, foodX, 5);
+        //     statCanvasCTX.fillStyle = "rgba(0, 255, 0, 1)";
+        //     statCanvasCTX.fill();
+        //     statCanvasCTX.closePath();
+        // }
     }
 
     this.move = function()
@@ -147,7 +151,18 @@ function Pawn(x, y) {
     }
 
     function hunt() {
+
+        // get new hunting path if needed
+        if (that.huntPath.length == 0) {
+
+        }
+
+        // move along this path
+
+
         isHunting = true;
+
+        that.moveTicks++;
 
         if (isGoalSeen()) {
 
@@ -174,6 +189,8 @@ function Pawn(x, y) {
 
         } else {
 
+
+
             that.huntTime++;
             // Get a random direction to search every X Ticks
             if (that.huntTime >= 50) {
@@ -183,6 +200,11 @@ function Pawn(x, y) {
         }
 
         that.move();
+    }
+
+    function getHuntingPath() {
+
+
     }
 
     function eat() {
