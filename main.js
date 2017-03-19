@@ -5,8 +5,8 @@ let statCanvasCTX;
 let canvasTilesX;
 let canvasTilesY;
 let pawn;
-let goal;
-let tiles = [];
+let food;
+let world = []; // Array of tiles in the world
 let manualControl = false;
 let isLooping = false;
 
@@ -21,7 +21,7 @@ const tileTypes = {
 const tileData = [
     {color: "rgba(238, 238, 238, 1)"}, // EMPTY
     {color: "rgba(255, 0, 0, 1)"}, // PAWN
-    {color: "rgba(0, 0, 255, 1)"}, // FOOD
+    {color: "rgba(0, 200, 0, 1)"}, // FOOD
     {color: "rgba(0, 0, 0, 1)"}, // WALL
 ]
 
@@ -37,8 +37,8 @@ function setupCanvasTest() {
     // Create pawn
     pawn = new Pawn(null, null);
 
-    spawnFood();
-    drawScene();
+    //spawnFood();
+    //drawScene();
 }
 
 function generateTerrain() {
@@ -48,12 +48,18 @@ function generateTerrain() {
 
     // For now the world is blank so just populate the tiles object by amount
     for (let x = 0; x < canvasTilesX; x++) {
-        tiles[x] = []
+        world[x] = []
 
         for (var y = 0; y < canvasTilesY; y++) {
 
             let type = tileTypes.EMPTY;
             let walkable = true;
+
+            // random wall spots
+            if (Math.random() > 0.80) {
+                type = tileTypes.WALL;
+                walkable = false;
+            }
 
             // walled border
             if (x == 0 || x == canvasTilesX - 1 ||
@@ -62,10 +68,12 @@ function generateTerrain() {
                 walkable = false;
             }
 
-            tiles[x][y] = {
+            world[x][y] = {
                 type: type,
                 walkable: walkable
             };
+
+            drawTile(x, y);
         }
     }
 }
@@ -73,7 +81,7 @@ function generateTerrain() {
 function Pawn(x, y) {
     this.x = x;
     this.y = y;
-    this.moveSpeed = 10; // ticks per 1 tile.
+    this.moveSpeed = 20; // ticks per 1 tile.
     this.moveTicks = 0;
     this.food = 10; // in seconds
     this.maxFood = 10; // in seconds
@@ -85,7 +93,8 @@ function Pawn(x, y) {
     let isHunting = false;
 
     getSpawnPoint();
-    tiles[this.x][this.y].type = tileTypes.PAWN;
+    world[this.x][this.y].type = tileTypes.PAWN;
+    drawTile(this.x, this.y);
 
     // N = 1.5, E = 0, S = .5, W = 1
     this.setDirection = function(direction)
@@ -106,116 +115,36 @@ function Pawn(x, y) {
         // Eventually some super awesome magic stuff
         // here to make the pawn seem not unlike an idiot.
         hunt();
-
-        // this.waitTicks++;
-
-        // if (this.waitTicks >= this.actionSpeed) {
-        //
-        //     this.waitTicks = 0;
-        //     this.food--; // Reduce hunger by 1 each action.
-        //     if (this.food < 0) this.food = 0;
-        //     let foodX = Math.round((
-        //         (this.food / this.maxFood) *
-        //         statCanvas.width));
-        //
-        //     statCanvasCTX.clearRect(0, 0,
-        //         statCanvas.width, statCanvas.height);
-        //     statCanvasCTX.beginPath();
-        //     statCanvasCTX.rect(0, 0, foodX, 5);
-        //     statCanvasCTX.fillStyle = "rgba(0, 255, 0, 1)";
-        //     statCanvasCTX.fill();
-        //     statCanvasCTX.closePath();
-        // }
-    }
-
-    this.move = function()
-    {
-        // calculate the next tile along the angle
-        var theta = this.direction * Math.PI;
-
-        // MATHMAGICAL!
-        dx = Math.cos(theta) * tileSize;
-        dy = Math.sin(theta) * tileSize;
-
-        if (collisionDetection()) {
-            console.log('collided')
-            this.direction = getRandomDirection();
-
-        } else {
-
-            this.x += (dx * this.moveSpeed);
-            this.y += (dy * this.moveSpeed);
-        }
-
-        draw();
     }
 
     function hunt() {
 
-        // get new hunting path if needed
         if (that.huntPath.length == 0) {
-
+            spawnFood();
+            that.huntPath = findPath(world, pawn.x, pawn.y, food.x, food.y)
         }
-
-        // move along this path
-
-
-        isHunting = true;
 
         that.moveTicks++;
+        if (that.moveTicks >= that.moveSpeed) {
+            that.moveTicks = 0;
 
-        if (isGoalSeen()) {
+            // Replace previous tile with empty and redraw
+            world[that.x][that.y].type = tileTypes.EMPTY;
+            drawTile(that.x, that.y);
 
-            // We see the goal!
-            // Head straight towards it using the power of MATH
-            var tx = goal.x - that.x,
-                ty = goal.y - that.y,
-                dist = Math.sqrt(tx*tx+ty*ty),
-                rad = Math.atan2(ty,tx);
+            // grab new coordinates from huntPath, set pawn and redraw.
+            let newCoords = that.huntPath.splice(0,1);
+            that.x = newCoords[0][0];
+            that.y = newCoords[0][1];
+            world[that.x][that.y].type = tileTypes.PAWN;
+            drawTile(that.x, that.y);
 
-            // if we are mathematically within 1 of the goal then
-            // jump to it, otherwise it's often missed.
-            if (dist < 1) {
-                dx = 0;
-                dy = 0;
-
-                that.x = goal.x;
-                that.y = goal.y;
-                eat();
-            }
-
-            // change pawns view to match his movement direction
-            that.direction = rad/Math.PI;
-
-        } else {
-
-
-
-            that.huntTime++;
-            // Get a random direction to search every X Ticks
-            if (that.huntTime >= 50) {
-                that.huntTime = 0;
-                that.direction = getRandomDirection();
-            }
         }
-
-        that.move();
-    }
-
-    function getHuntingPath() {
-
-
-    }
-
-    function eat() {
-        that.food = that.maxFood;
-        spawnGoal();
     }
 }
 
 function drawTile(x, y) {
-
-    fieldCanvasCTX.fillStyle = tileData[tiles[x][y].type].color;
+    fieldCanvasCTX.fillStyle = tileData[world[x][y].type].color;
     fieldCanvasCTX.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
     fieldCanvasCTX.strokeStyle = borderColor;
     fieldCanvasCTX.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
@@ -240,7 +169,7 @@ function updatePawns() {
 }
 
 function doLoop() {
-    drawScene();
+    pawn.think();
 }
 
 function spawnFood() {
@@ -249,17 +178,21 @@ function spawnFood() {
 
     if (randCoords.x == pawn.x ||
         randCoords.y == pawn.y) {
-        // Don't spawn the goal on our pawn. Try Again
+        // Don't spawn the food on our pawn. Try Again
         spawnFood();
     } else {
 
-        tiles[randCoords.x][randCoords.y].type = tileTypes.FOOD;
+        world[randCoords.x][randCoords.y].type = tileTypes.FOOD;
+        food = {x: randCoords.x, y: randCoords.y};
+
+        // draw food at these coords
+        drawTile(randCoords.x, randCoords.y);
     }
 }
 
 function isPointWalkable(x,y) {
-    if (tiles[x][y]) {
-        return tiles[x][y].walkable
+    if (world[x][y]) {
+        return world[x][y].walkable
     }
 
     return false;
