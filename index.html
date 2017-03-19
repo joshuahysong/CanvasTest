@@ -4,24 +4,25 @@
     <meta charset="utf-8" />
     <title>Canvas Pixel Test</title>
 	<link rel="stylesheet" href="style.css" />
-    <script src="scripts.js"></script>
 </head>
 <body onload="setupCanvasTest()">
     <div id="uiContainer">
-        <canvas id="fieldCanvas" width="100px" height="100px"
+        <canvas id="fieldCanvas" width="500px" height="500px"
             style="background: #eee; left: 5px; top: 5px; z-index: 0;"></canvas>
-        <canvas id="pawnCanvas" width="100px" height="100px"
+        <canvas id="pawnCanvas" width="500px" height="500px"
             style="background: transparent; left: 5px; top: 5px; z-index: 1;"></canvas>
-        <canvas id="goalCanvas" width="100px" height="100px"
+        <canvas id="goalCanvas" width="500px" height="500px"
             style="background: transparent; left: 5px; top: 5px; z-index: 2;"></canvas>
-        <canvas id="statCanvas" width="100px" height="5px"
-            style="background: red; left: 5px; top: 110px; z-index: 3;"></canvas>
+        <canvas id="statCanvas" width="500px" height="5px"
+            style="background: red; left: 5px; top: 510px; z-index: 3;"></canvas>
         <div align=center
-            style="position: absolute; left: 0px; top: 125px;
-                z-index: 4; width: 110px;">
+            style="position: absolute; left: 0px; top: 525px;
+                z-index: 4; width: 510px;">
             <button id="goButton" onclick="toggleState(this)">GO</button>
         </div>
     </div>
 
+    <script src="main.js"></script>
+    <script src="pathfinding.js"></script>
 </body>
 </html>
