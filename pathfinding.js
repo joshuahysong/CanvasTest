@@ -30,55 +30,55 @@ function findPath(world, startX, startY, endX, endY)
     	let	south = y + 1;
     	let	east = x + 1;
     	let	west = x - 1;
-    	let	coordNorth = north > -1 && isPointWalkable(x, north);
-    	let	coordSouth = south < worldHeight && isPointWalkable(x, south);
-    	let	coordEast = east < worldWidth && isPointWalkable(east, y);
-    	let	coordWest = west > -1 && isPointWalkable(west, y);
-    	let	result = [];
+    	let	isNorthWalkable = north > -1 && isPointWalkable(x, north);
+    	let	isSouthWalkable = south < worldHeight && isPointWalkable(x, south);
+    	let	isEastWalkable = east < worldWidth && isPointWalkable(east, y);
+    	let	isWestWalkable = west > -1 && isPointWalkable(west, y);
+    	let	neighborCoords = [];
 
-		if(coordNorth)
-            result.push({x: x, y: north});
-		if(coordSouth)
-    		result.push({x: x, y: south});
-		if(coordEast)
-    		result.push({x: east, y: y});
-		if(coordWest)
-    		result.push({x: west, y: y});
+		if(isNorthWalkable)
+            neighborCoords.push({x: x, y: north});
+		if(isSouthWalkable)
+    		neighborCoords.push({x: x, y: south});
+		if(isEastWalkable)
+    		neighborCoords.push({x: east, y: y});
+		if(isWestWalkable)
+    		neighborCoords.push({x: west, y: y});
 
 		diagonalNeighbors(
-            coordNorth,
-            coordSouth,
-            coordEast,
-            coordWest,
+            isNorthWalkable,
+            isSouthWalkable,
+            isEastWalkable,
+            isWestWalkable,
             north,
             south,
             east,
             west,
-            result);
+            neighborCoords);
 
-		return result;
+		return neighborCoords;
 	}
 
 	// returns every available North East, South East,
 	// South West or North West cell - no squeezing through
 	// "cracks" between two diagonals
 	function diagonalNeighbors(
-        coordNorth, coordSouth, coordEast, coordWest,
-        north, south, east, west, result)
+        isNorthWalkable, isSouthWalkable, isEastWalkable, isWestWalkable,
+        north, south, east, west, neighborCoords)
 	{
-		if(coordNorth)
+		if(isNorthWalkable)
 		{
-			if(coordEast && isPointWalkable(east, north))
-                result.push({x: east, y: north});
-			if(coordWest && isPointWalkable(west, north))
-                result.push({x: west, y: north});
+			if(isEastWalkable && isPointWalkable(east, north))
+                neighborCoords.push({x: east, y: north});
+			if(isWestWalkable && isPointWalkable(west, north))
+                neighborCoords.push({x: west, y: north});
 		}
-		if(coordSouth)
+		if(isSouthWalkable)
 		{
-			if(coordEast && isPointWalkable(east, south))
-		        result.push({x: east, y: south});
-			if(coordWest && isPointWalkable(west, south))
-                result.push({x: west, y: south});
+			if(isEastWalkable && isPointWalkable(east, south))
+		        neighborCoords.push({x: east, y: south});
+			if(isWestWalkable && isPointWalkable(west, south))
+                neighborCoords.push({x: west, y: south});
 		}
 	}
 
@@ -106,7 +106,7 @@ function findPath(world, startX, startY, endX, endY)
 		let aStar = new Array(worldSize); // init array to specific size
 		let openNodes = [pathStart];
 		let closedNodes = [];
-		let result = [];
+		let pathCoordinates = [];
 		let coordNeighbors;
 		let currentNode;
 		let path;
@@ -139,7 +139,7 @@ function findPath(world, startX, startY, endX, endY)
 				path = closedNodes[closedNodes.push(currentNode) - 1];
 				do
 				{
-					result.push([path.x, path.y]);
+					pathCoordinates.push([path.x, path.y]);
 				}
 				while (path = path.parent);
 
@@ -149,7 +149,7 @@ function findPath(world, startX, startY, endX, endY)
                 openNodes = [];
 
 				// flip array
-				result.reverse();
+				pathCoordinates.reverse();
 			}
 			else // not the destination
 			{
@@ -174,7 +174,7 @@ function findPath(world, startX, startY, endX, endY)
 				closedNodes.push(currentNode);
 			}
 		}
-		return result;
+		return pathCoordinates;
 	}
 
 	return calculatePath();
