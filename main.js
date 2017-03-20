@@ -10,6 +10,7 @@ let world = []; // Array of tiles in the world
 let manualControl = false;
 let isLooping = false;
 
+const drawBorders = true;
 const tileSize = 10; // pixels per tile
 const borderColor = "rgba(230, 230, 230, 1)";
 const tileTypes = {
@@ -19,15 +20,25 @@ const tileTypes = {
     WALL: 3,
     VISION: 4
 };
+// const tileData = [
+//     {visibleColor: "rgba(238, 238, 238, 1)",
+//       hiddenColor: "rgba(200, 200, 200, 1)"}, // EMPTY
+//     {visibleColor: "rgba(255, 0, 0, 1)",
+//       hiddenColor: "rgba(255, 0, 0, 1)"}, // PAWN
+//     {visibleColor: "rgba(0, 200, 0, 1)",
+//       hiddenColor: "rgba(0, 200, 0, 1)"}, // FOOD
+//     {visibleColor: "rgba(0, 0, 0, 1)",
+//       hiddenColor: "rgba(0, 0, 0, 1)"}, // WALL
+// ]
 const tileData = [
-    {visibleColor: "rgba(238, 238, 238, 1)",
-      hiddenColor: "rgba(200, 200, 200, 1)"}, // EMPTY
-    {visibleColor: "rgba(255, 0, 0, 1)",
-      hiddenColor: "rgba(255, 0, 0, 1)"}, // PAWN
-    {visibleColor: "rgba(0, 200, 0, 1)",
-      hiddenColor: "rgba(0, 200, 0, 1)"}, // FOOD
-    {visibleColor: "rgba(0, 0, 0, 1)",
-      hiddenColor: "rgba(0, 0, 0, 1)"}, // WALL
+    {visibleColor: {r: 238, g: 238, b: 238, a: 255},
+      hiddenColor: {r: 200, g: 200, b: 200, a: 255}}, // EMPTY
+    {visibleColor: {r: 255, g: 0, b: 0, a: 255},
+      hiddenColor: {r: 255, g: 0, b: 0, a: 255}}, // PAWN
+    {visibleColor: {r: 0, g: 200, b: 0, a: 255},
+      hiddenColor: {r: 0, g: 200, b: 0, a: 255}}, // FOOD
+    {visibleColor: {r: 0, g: 0, b: 0, a: 255},
+      hiddenColor: {r: 0, g: 0, b: 0, a: 255}}, // WALL
 ]
 
 function setupCanvasTest() {
@@ -43,7 +54,7 @@ function setupCanvasTest() {
     pawn = new Pawn(null, null);
     calculateFOV(pawn.x, pawn.y);
     //spawnFood();
-    //drawScene();
+    drawScene();
 }
 
 function generateTerrain() {
@@ -78,7 +89,7 @@ function generateTerrain() {
                 walkable: walkable
             };
 
-            drawTile(x, y);
+            //drawTile(x, y);
         }
     }
 }
@@ -99,7 +110,7 @@ function Pawn(x, y) {
 
     getSpawnPoint();
     world[this.x][this.y].type = tileTypes.PAWN;
-    drawTile(this.x, this.y);
+    //drawTile(this.x, this.y);
 
     // N = 1.5, E = 0, S = .5, W = 1
     this.setDirection = function(direction)
@@ -151,26 +162,89 @@ function Pawn(x, y) {
 }
 
 function drawTile(x, y) {
-  let color;
-  if (world[x][y].visible) {
-    color = tileData[world[x][y].type].visibleColor
-  } else {
-    color = tileData[world[x][y].type].hiddenColor
-  }
-
-  fieldCanvasCTX.fillStyle = color;
-  fieldCanvasCTX.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+  // let color;
+  // if (world[x][y].visible) {
+  //   color = tileData[world[x][y].type].visibleColor
+  // } else {
+  //   color = tileData[world[x][y].type].hiddenColor
+  // }
+  //
+  // fieldCanvasCTX.fillStyle = color;
+  // fieldCanvasCTX.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
   fieldCanvasCTX.strokeStyle = borderColor;
   fieldCanvasCTX.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
 }
 
-function drawScene() {
-    fieldCanvasCTX.clearRect(0,0,500,500)
+function drawScene2() {
+    //fieldCanvasCTX.clearRect(0,0,500,500)
     for (let x = 0; x < canvasTilesX; x++) {
         for (var y = 0; y < canvasTilesY; y++) {
             drawTile(x,y);
         }
     }
+}
+
+function drawScene() {
+
+  //fieldCanvasCTX.clearRect(0, 0, fieldCanvas.width, fieldCanvas.height)
+  var imgData = fieldCanvasCTX.createImageData(
+    fieldCanvas.width, fieldCanvas.height);
+
+  let x = -1;
+  let y = 0;
+  let index = 0;
+  let xRow = 0
+  for (var i = 0; i < imgData.data.length; i += 4)
+  {
+    // Find which tile this pixel falls in
+    if (index % tileSize === 0) {
+      x++;
+      if (x >= canvasTilesX) {
+         x = 0;
+         xRow++;
+      }
+      if (xRow > tileSize) {
+        xRow = 0;
+        y++;
+      }
+    }
+
+    if (drawBorders &&
+      (index % tileSize === 0 || index % tileSize === 9)) {
+
+      imgData.data[i + 0] = 230;
+      imgData.data[i + 1] = 230;
+      imgData.data[i + 2] = 230;
+      imgData.data[i + 3] = 255;
+
+    } else if (index % fieldCanvas.height === 0) {
+
+      console.log("hey")
+
+      imgData.data[i + 0] = 0;
+      imgData.data[i + 1] = 255;
+      imgData.data[i + 2] = 0;
+      imgData.data[i + 3] = 255;
+
+    } else {
+
+      let color;
+      if (world[x][y].visible) {
+        color = tileData[world[x][y].type].visibleColor
+      } else {
+        color = tileData[world[x][y].type].hiddenColor
+      }
+
+      imgData.data[i + 0] = color.r;
+      imgData.data[i + 1] = color.g;
+      imgData.data[i + 2] = color.b;
+      imgData.data[i + 3] = color.a;
+    }
+
+      index++;
+  }
+
+  fieldCanvasCTX.putImageData(imgData, 0, 0);
 }
 
 function updatePawns() {
