@@ -16,13 +16,18 @@ const tileTypes = {
     EMPTY: 0,
     PAWN: 1,
     FOOD: 2,
-    WALL: 3
+    WALL: 3,
+    VISION: 4
 };
 const tileData = [
-    {color: "rgba(238, 238, 238, 1)"}, // EMPTY
-    {color: "rgba(255, 0, 0, 1)"}, // PAWN
-    {color: "rgba(0, 200, 0, 1)"}, // FOOD
-    {color: "rgba(0, 0, 0, 1)"}, // WALL
+    {visibleColor: "rgba(238, 238, 238, 1)",
+      hiddenColor: "rgba(200, 200, 200, 1)"}, // EMPTY
+    {visibleColor: "rgba(255, 0, 0, 1)",
+      hiddenColor: "rgba(255, 0, 0, 1)"}, // PAWN
+    {visibleColor: "rgba(0, 200, 0, 1)",
+      hiddenColor: "rgba(0, 200, 0, 1)"}, // FOOD
+    {visibleColor: "rgba(0, 0, 0, 1)",
+      hiddenColor: "rgba(0, 0, 0, 1)"}, // WALL
 ]
 
 function setupCanvasTest() {
@@ -36,7 +41,7 @@ function setupCanvasTest() {
 
     // Create pawn
     pawn = new Pawn(null, null);
-
+    calculateFOV(pawn.x, pawn.y);
     //spawnFood();
     //drawScene();
 }
@@ -46,7 +51,6 @@ function generateTerrain() {
     canvasTilesX = Math.round(fieldCanvas.width / tileSize)
     canvasTilesY = Math.round(fieldCanvas.height / tileSize)
 
-    // For now the world is blank so just populate the tiles object by amount
     for (let x = 0; x < canvasTilesX; x++) {
         world[x] = []
 
@@ -66,6 +70,7 @@ function generateTerrain() {
               y == 0 || y == canvasTilesY - 1) {
                 type = tileTypes.WALL;
                 walkable = false;
+                visible = false;
             }
 
             world[x][y] = {
@@ -85,7 +90,7 @@ function Pawn(x, y) {
     this.moveTicks = 0;
     this.food = 10; // in seconds
     this.maxFood = 10; // in seconds
-    this.viewDistance = 20 * tileSize;
+    this.viewDistance = 10;
     this.direction = .5; // N = 1.5, E = 0, S = .5, W = 1
     this.huntPath = []
 
@@ -130,24 +135,33 @@ function Pawn(x, y) {
 
             // Replace previous tile with empty and redraw
             world[that.x][that.y].type = tileTypes.EMPTY;
-            drawTile(that.x, that.y);
+            //drawTile(that.x, that.y);
 
             // grab new coordinates from huntPath, set pawn and redraw.
             let newCoords = that.huntPath.splice(0,1);
             that.x = newCoords[0][0];
             that.y = newCoords[0][1];
             world[that.x][that.y].type = tileTypes.PAWN;
-            drawTile(that.x, that.y);
+            //drawTile(that.x, that.y);
 
+            calculateFOV(that.x, that.y, that.viewDistance);
+            drawScene();
         }
     }
 }
 
 function drawTile(x, y) {
-    fieldCanvasCTX.fillStyle = tileData[world[x][y].type].color;
-    fieldCanvasCTX.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
-    fieldCanvasCTX.strokeStyle = borderColor;
-    fieldCanvasCTX.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
+  let color;
+  if (world[x][y].visible) {
+    color = tileData[world[x][y].type].visibleColor
+  } else {
+    color = tileData[world[x][y].type].hiddenColor
+  }
+
+  fieldCanvasCTX.fillStyle = color;
+  fieldCanvasCTX.fillRect(x * tileSize, y * tileSize, tileSize, tileSize);
+  fieldCanvasCTX.strokeStyle = borderColor;
+  fieldCanvasCTX.strokeRect(x * tileSize, y * tileSize, tileSize, tileSize);
 }
 
 function drawScene() {
@@ -186,7 +200,7 @@ function spawnFood() {
         food = {x: randCoords.x, y: randCoords.y};
 
         // draw food at these coords
-        drawTile(randCoords.x, randCoords.y);
+        //drawTile(randCoords.x, randCoords.y);
     }
 }
 
